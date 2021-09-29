@@ -1,5 +1,9 @@
 # Szkolenie - Programowanie wielowątkowe w C++ #
 
+## Edytor
+
+* https://codeshare.io/Adgnnx
+
 ## Dokumentacja
 
 * https://infotraining.bitbucket.io/cpp-thd
