@@ -44,6 +44,8 @@ int main()
     std::cout << "Main thread starts..." << std::endl;
     const std::string text = "Hello Threads";
 
+    std::cout << "No of cores: " << std::max(1u, std::thread::hardware_concurrency()) << std::endl;
+
     std::vector<ThreadResult<char>> results(2);
     std::vector<std::thread> threads(2);
 

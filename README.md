@@ -8,6 +8,10 @@
 
 * https://infotraining.bitbucket.io/cpp-thd
 
+## Książki
+
+* https://learning.oreilly.com/library/view/a-tour-of/9780134998053/
+
 ## Środowisko (2 opcje do wyboru)
 
   1. Konfiguracja lokalna
