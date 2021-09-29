@@ -71,7 +71,7 @@ int main()
 
         thd2.join(); // blocking operation - waiting for thd2 to finish
         thd3.join();
-        thd4.join();
+        thd4.detach();
         thd6.join();
     }
 
