@@ -33,14 +33,17 @@ public:
     }
 
     void print() const
-    {
-        synced_cout<< "Bank Account #" << id_ << "; Balance = " << balance() << "\n";
+    {        
+        synced_cout << "Bank Account #" << id_ << "; Balance = " << balance() << "\n";
     }
 
     void transfer(BankAccount& to, double amount)
     {
-        balance_ -= amount;
-        to.balance_ += amount;
+        //balance_ -= amount;
+        withdraw(amount);
+
+        //to.balance_ += amount;
+        to.deposit(amount);
     }
 
     void withdraw(double amount)
@@ -79,6 +82,12 @@ void make_deposits(BankAccount& ba, int no_of_operations)
         ba.deposit(1.0);
 }
 
+void make_transfer(BankAccount& from, BankAccount& to, int no_of_operations, double amount)
+{
+    for(int i = 0; i < no_of_operations; ++i)
+        from.transfer(to, amount);
+}
+
 int main()
 {
     const int NO_OF_ITERS = 10'000'000;
@@ -92,9 +101,13 @@ int main()
 
     std::thread thd1(&make_withdraws, std::ref(ba1), NO_OF_ITERS);
     std::thread thd2(&make_deposits, std::ref(ba1), NO_OF_ITERS);
+    std::thread thd3(&make_transfer, std::ref(ba1), std::ref(ba2), NO_OF_ITERS, 1.0);
+    std::thread thd4(&make_transfer, std::ref(ba2), std::ref(ba1), NO_OF_ITERS, 1.0);
 
     thd1.join();
     thd2.join();
+    thd3.join();
+    thd4.join();
 
     std::cout << "After all threads are done: ";
     ba1.print();
