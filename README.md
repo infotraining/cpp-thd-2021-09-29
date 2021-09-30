@@ -1,5 +1,10 @@
 # Szkolenie - Programowanie wielowątkowe w C++ #
 
+## Biblioteki
+
+* https://abseil.io/ - biblioteka Google
+* https://github.com/facebook/folly - biblioteka Facebook
+
 ## Edytor
 
 * https://codeshare.io/Adgnnx
