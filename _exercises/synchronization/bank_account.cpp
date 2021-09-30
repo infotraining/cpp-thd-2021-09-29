@@ -23,7 +23,8 @@ class BankAccount
 {
     const int id_;
     double balance_;
-    mutable std::mutex mtx_;
+    using mutex_t = std::recursive_mutex;
+    mutable std::recursive_mutex mtx_;
 
 public:
     BankAccount(int id, double balance)
@@ -39,22 +40,35 @@ public:
 
     void transfer(BankAccount& to, double amount)
     {
-        //balance_ -= amount;
-        withdraw(amount);
+        std::unique_lock<mutex_t> lk_from{mtx_, std::defer_lock};
+        std::unique_lock<mutex_t> lk_to{to.mtx_, std::defer_lock};
 
-        //to.balance_ += amount;
+        std::lock(lk_from, lk_to); // avoiding deadlock
+
+        withdraw(amount);
         to.deposit(amount);
+    }
+
+    void transfer_ver2(BankAccount& to, double amount)
+    {
+        std::lock(mtx_, to.mtx_); // avoiding deadlock
+
+        std::unique_lock<mutex_t> lk_from{mtx_, std::adopt_lock};
+        std::unique_lock<mutex_t> lk_to{to.mtx_, std::adopt_lock};
+
+        balance_ -= amount;
+        to.balance_ += amount;
     }
 
     void withdraw(double amount)
     {
-        std::lock_guard<std::mutex> lk{mtx_};
+        std::lock_guard<mutex_t> lk{mtx_};
         balance_ -= amount;
     }
 
     void deposit(double amount)
     {
-        std::lock_guard<std::mutex> lk{mtx_};
+        std::lock_guard<mutex_t> lk{mtx_};
         balance_ += amount;
     }
 
@@ -65,8 +79,23 @@ public:
 
     double balance() const
     {
-        std::lock_guard<std::mutex> lk{mtx_};
+        std::lock_guard<mutex_t> lk{mtx_};
         return balance_;
+    }
+
+    void lock()
+    {
+        mtx_.lock();
+    }
+
+    void unlock()
+    {
+        mtx_.unlock();
+    }
+
+    bool try_lock()
+    {
+        return mtx_.try_lock();
     }
 };
 
@@ -103,6 +132,14 @@ int main()
     std::thread thd2(&make_deposits, std::ref(ba1), NO_OF_ITERS);
     std::thread thd3(&make_transfer, std::ref(ba1), std::ref(ba2), NO_OF_ITERS, 1.0);
     std::thread thd4(&make_transfer, std::ref(ba2), std::ref(ba1), NO_OF_ITERS, 1.0);
+
+    {
+        std::lock_guard<BankAccount> lk{ba1};
+        ba1.withdraw(1'000);
+        ba1.deposit(500);
+        ba1.deposit(500);
+        ba1.transfer(ba2, 1'000);
+    }
 
     thd1.join();
     thd2.join();
