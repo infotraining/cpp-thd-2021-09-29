@@ -1,10 +1,29 @@
 #include <iostream>
 #include <thread>
+#include <mutex>
+
+struct SyncedCout
+{
+    std::ostream& out;
+    std::mutex mtx_out;
+};
+
+template <typename T>
+SyncedCout& operator<<(SyncedCout& sc, const T& value)
+{
+    std::lock_guard<std::mutex> lk{sc.mtx_out};
+    sc.out << value;
+
+    return sc;
+}
+
+SyncedCout synced_cout{std::cout};
 
 class BankAccount
 {
     const int id_;
     double balance_;
+    mutable std::mutex mtx_;
 
 public:
     BankAccount(int id, double balance)
@@ -15,7 +34,7 @@ public:
 
     void print() const
     {
-        std::cout << "Bank Account #" << id_ << "; Balance = " << balance_ << std::endl;
+        synced_cout<< "Bank Account #" << id_ << "; Balance = " << balance() << "\n";
     }
 
     void transfer(BankAccount& to, double amount)
@@ -26,11 +45,13 @@ public:
 
     void withdraw(double amount)
     {
+        std::lock_guard<std::mutex> lk{mtx_};
         balance_ -= amount;
     }
 
     void deposit(double amount)
     {
+        std::lock_guard<std::mutex> lk{mtx_};
         balance_ += amount;
     }
 
@@ -41,6 +62,7 @@ public:
 
     double balance() const
     {
+        std::lock_guard<std::mutex> lk{mtx_};
         return balance_;
     }
 };
