@@ -47,6 +47,29 @@ namespace ver_2_0
     }
 }
 
+namespace ver_3_0_with_padding
+{
+    struct alignas(128 /*std::hardware_destructive_interference_size*/) AlignedValue
+    {
+        uintmax_t value;
+    };
+
+    void calc_hits(uintmax_t count, AlignedValue& hits) {
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_real_distribution<double> rnd(-1.0, 1.0);
+
+        for (uintmax_t n = 0; n < count; ++n)
+        {
+            double x = rnd(gen);
+            double y = rnd(gen);
+            if (x * x + y * y < 1)
+                hits.value++;
+        }
+
+    }
+}
+
 
 int main()
 {
@@ -73,9 +96,9 @@ int main()
     const uint32_t cores = std::max(1u,std::thread::hardware_concurrency());
 
     //////////////////////////////////////////////////////////////////////////////
-    // multithreading thread - ver 1
+    // multithreading thread - ver 1 - hot loop
     {
-        cout << "\nPi calculation started! Cores no: " << cores << endl;
+        cout << "\nPi calculation started! Hot loop. Cores no: " << cores << endl;
         const auto start = chrono::high_resolution_clock::now();
 
         std::vector<std::thread> threads(cores);
@@ -106,9 +129,9 @@ int main()
 
 
     /// //////////////////////////////////////////////////////////////////////////////
-    // multithreading thread - ver 2
+    // multithreading thread - ver 2 - local
     {
-        cout << "\nPi calculation started! Cores no: " << cores << endl;
+        cout << "\nPi calculation started! Local var. Cores no: " << cores << endl;
         const auto start = chrono::high_resolution_clock::now();
 
         std::vector<std::thread> threads(cores);
@@ -127,6 +150,39 @@ int main()
             t.join();
 
         hits = std::accumulate(results.begin(), results.end(), 0ULL);
+
+        const double pi = static_cast<double>(hits) / N * 4;
+
+        const auto end = chrono::high_resolution_clock::now();
+        const auto elapsed_time = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+
+        cout << "Pi = " << pi << endl;
+        cout << "Elapsed = " << elapsed_time << "ms" << endl;
+    }
+
+    /// //////////////////////////////////////////////////////////////////////////////
+    // multithreading thread - ver 3 - padding
+    {
+        using namespace ver_3_0_with_padding;
+
+        cout << "\nPi calculation started! Padding. Cores no: " << cores << endl;
+
+        const auto start = chrono::high_resolution_clock::now();
+
+        std::vector<std::thread> threads(cores);
+        std::vector<AlignedValue> results(cores);
+
+        for (size_t i = 0; i < threads.size(); i++)
+        {
+            auto count_per_core = N / cores;
+
+            threads[i] = std::thread(ver_3_0_with_padding::calc_hits, count_per_core, std::ref(results[i]));
+        }
+
+        for (auto& t : threads)
+            t.join();
+
+        auto hits = std::accumulate(results.begin(), results.end(), 0ULL, [](auto h, auto lh) { return h + lh.value; });
 
         const double pi = static_cast<double>(hits) / N * 4;
 

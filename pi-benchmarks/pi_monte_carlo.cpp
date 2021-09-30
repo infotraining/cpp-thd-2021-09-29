@@ -93,14 +93,16 @@ void calc_hits_by_ref_intensive_incr_with_mutex(counter_t n, counter_t& hits, mu
 {
     RandomEngine<double> rnd;
 
+    counter_t local_hits{};
     for (counter_t i = 0; i < n; ++i)
     {
         double x = rnd();
         double y = rnd();
         if (x * x + y * y < 1)
         {
-            lock_guard<mutex> lk{mtx};
-            hits++;
+            mtx.lock();
+            local_hits++;
+            mtx.unlock();
         }
     }
 }
@@ -115,7 +117,7 @@ void calc_hits_by_ref_intensive_incr_with_atomic(counter_t n, atomic<counter_t>&
         double y = rnd();
         if (x * x + y * y < 1)
         {
-            hits.fetch_add(1, memory_order_relaxed);
+            ++hits;
         }
     }
 }
