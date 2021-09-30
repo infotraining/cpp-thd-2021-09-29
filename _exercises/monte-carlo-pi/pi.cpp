@@ -9,53 +9,57 @@
 
 using namespace std;
 
-void throwPi(uint32_t ile, uintmax_t& trafione)
+namespace ver_1_0
 {
-    std::random_device rd;
-    std::mt19937_64 gen(rd());
-    std::uniform_real_distribution<double> losuj(-1.0, 1.0);
-
-    for (long n = 0; n < ile; ++n)
+    void calc_hits(uintmax_t count, uintmax_t& hits)
     {
-        double x = losuj(gen);
-        double y = losuj(gen);
-        if (x * x + y * y < 1)
-            trafione++;
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_real_distribution<double> rnd(-1.0, 1.0);
+
+        for (uintmax_t n = 0; n < count; ++n)
+        {
+            double x = rnd(gen);
+            double y = rnd(gen);
+            if (x * x + y * y < 1)
+                hits++;
+        }
     }
 }
 
 namespace ver_2_0
 {
-    void throwPi(uint32_t ile, uintmax_t& trafione)
-    {
+    void calc_hits(uintmax_t count, uintmax_t& hits) {
         std::random_device rd;
         std::mt19937_64 gen(rd());
-        std::uniform_real_distribution<double> losuj(-1.0, 1.0);
+        std::uniform_real_distribution<double> rnd(-1.0, 1.0);
 
-        uintmax_t local_trafione{};
-        for (long n = 0; n < ile; ++n)
+        uintmax_t local_hits{};
+        for (uintmax_t n = 0; n < count; ++n)
         {
-            double x = losuj(gen);
-            double y = losuj(gen);
+            double x = rnd(gen);
+            double y = rnd(gen);
             if (x * x + y * y < 1)
-                local_trafione++;
+                local_hits++;
         }
 
-        trafione = local_trafione;
+        hits = local_hits;
     }
 }
 
 
 int main()
 {
-    const long N = 120'000'000;
+    const uintmax_t N = 120'000'000;
 
+    //////////////////////////////////////////////////////////////////////////////
+    // single thread
     {
         cout << "Pi calculation started!" << endl;
         const auto start = chrono::high_resolution_clock::now();
 
         uintmax_t hits{};
-        throwPi(N, hits);
+        ver_1_0::calc_hits(N, hits);
 
         const double pi = static_cast<double>(hits) / N * 4;
 
@@ -66,29 +70,30 @@ int main()
         cout << "Elapsed = " << elapsed_time << "ms" << endl;
     }
 
+    const uint32_t cores = std::max(1u,std::thread::hardware_concurrency());
+
     //////////////////////////////////////////////////////////////////////////////
-    // multithreading thread
+    // multithreading thread - ver 1
     {
-        uint32_t cores = std::max(1u,std::thread::hardware_concurrency());
-
-        cout << "Pi calculation started!" << endl;
+        cout << "\nPi calculation started! Cores no: " << cores << endl;
         const auto start = chrono::high_resolution_clock::now();
+
         std::vector<std::thread> threads(cores);
-        std::vector<uintmax_t> wyniki(cores);
+        std::vector<uintmax_t> results(cores);
 
-        long hits = 0;
+        uintmax_t hits{};
 
-        for (uint8_t i = 0; i<threads.size(); i++)
+        for (size_t i = 0; i < threads.size(); i++)
         {
-            uint32_t ile = N/cores;
+            auto count_per_core = N / cores;
 
-            threads.at(i) = std::thread(&throwPi, ile, std::ref(wyniki.at(i)));
+            threads[i] = std::thread(&ver_1_0::calc_hits, count_per_core, std::ref(results[i]));
         }
 
         for (auto& t : threads)
             t.join();
 
-        hits = std::accumulate(wyniki.begin(), wyniki.end(), 0ULL);
+        hits = std::accumulate(results.begin(), results.end(), 0ULL);
 
         const double pi = static_cast<double>(hits) / N * 4;
 
@@ -101,28 +106,27 @@ int main()
 
 
     /// //////////////////////////////////////////////////////////////////////////////
-    // multithreading thread
+    // multithreading thread - ver 2
     {
-        uint32_t cores = std::max(1u,std::thread::hardware_concurrency());
-
-        cout << "Pi calculation started!" << endl;
+        cout << "\nPi calculation started! Cores no: " << cores << endl;
         const auto start = chrono::high_resolution_clock::now();
+
         std::vector<std::thread> threads(cores);
-        std::vector<uintmax_t> wyniki(cores);
+        std::vector<uintmax_t> results(cores);
 
-        long hits = 0;
+        uintmax_t hits{};
 
-        for (uint8_t i = 0; i<threads.size(); i++)
+        for (size_t i = 0; i < threads.size(); i++)
         {
-            uint32_t ile = N/cores;
+            auto count_per_core = N / cores;
 
-            threads.at(i) = std::thread(&ver_2_0::throwPi, ile, std::ref(wyniki.at(i)));
+            threads[i] = std::thread(&ver_2_0::calc_hits, count_per_core, std::ref(results[i]));
         }
 
         for (auto& t : threads)
             t.join();
 
-        hits = std::accumulate(wyniki.begin(), wyniki.end(), 0ULL);
+        hits = std::accumulate(results.begin(), results.end(), 0ULL);
 
         const double pi = static_cast<double>(hits) / N * 4;
 
