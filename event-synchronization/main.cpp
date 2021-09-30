@@ -17,7 +17,7 @@ using namespace std::literals;
 class Data
 {
     std::vector<int> data_;
-    bool is_ready_ = false;
+    std::atomic<bool> is_ready_{false};
 
 public:
     void read()
@@ -31,12 +31,12 @@ public:
         std::this_thread::sleep_for(2s);
         std::cout << "End reading..." << std::endl;
 
-        is_ready_ = true;
+        is_ready_.store(true, std::memory_order_release); //XXXXXXXXXXXX
     }
 
     void process(int id)
     {
-        while (!is_ready_)
+        while (!is_ready_.load(std::memory_order_acquire)) //XXXXXXXXXXXX
         {
         }
 
@@ -51,11 +51,16 @@ int main()
     Data data;
 
     std::thread thd_producer {[&data]
-        { data.read(); }};
+        { data.read(); }
+    };
+
     std::thread thd_consumer1 {[&data]
-        { data.process(1); }};
+        { data.process(1); }
+    };
+
     std::thread thd_consumer2 {[&data]
-        { data.process(2); }};
+        { data.process(2); }
+    };
 
     thd_producer.join();
     thd_consumer1.join();
