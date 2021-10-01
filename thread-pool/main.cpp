@@ -6,6 +6,8 @@
 #include <thread>
 #include <vector>
 #include <atomic>
+#include <future>
+#include <random>
 #include "thread_safe_queue.hpp"
 
 using namespace std::literals;
@@ -93,6 +95,19 @@ namespace ver_1_1
                 threads_[i] = std::thread{ [this] { run(); } };
         }
 
+        template <typename Callable>
+        auto submit(Callable&& task) //-> decltype(task())
+        {
+            using ResultT = decltype(task());
+
+            auto pt = std::make_shared<std::packaged_task<ResultT()>>(task);
+            std::future<ResultT> fresult = pt->get_future();
+
+            q_tasks_.push([pt] {(*pt)(); });
+
+            return fresult;
+        }
+
         ~ThreadPool()
         {
             for(size_t i = 0; i < threads_.size(); ++i)
@@ -101,11 +116,6 @@ namespace ver_1_1
             for(auto& thd : threads_)
                 if (thd.joinable())
                     thd.join();
-        }
-
-        void submit(Task task)
-        {
-            q_tasks_.push(task);
         }
     };
 }
@@ -124,6 +134,21 @@ void background_work(size_t id, const std::string& text, std::chrono::millisecon
     std::cout << "bw#" << id << " is finished..." << std::endl;
 }
 
+int calculate_square(int x)
+{
+    std::cout << "Starting calculation for " << x << " in " << std::this_thread::get_id() << std::endl;
+
+    std::random_device rd;
+    std::uniform_int_distribution<> distr(100, 5000);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(distr(rd)));
+
+    if (x % 3 == 0)
+        throw std::runtime_error("Error#3");
+
+    return x * x;
+}
+
 int main()
 {
     using namespace ver_1_1;
@@ -133,10 +158,24 @@ int main()
 
     ThreadPool thread_pool(4);
 
-    thread_pool.submit([] { background_work(1, "text", 250ms); });
+    std::vector<std::future<int>> fresults;
 
-    for(int i = 2; i <= 20; ++i)
-        thread_pool.submit([i] { background_work(i, "bw#"s + std::to_string(i), 100ms); });
+    for(int i = 1; i < 20; ++i)
+        fresults.push_back(thread_pool.submit([i] { return calculate_square(i); }));
+
+
+    for(auto& f : fresults)
+    {
+        try
+        {
+            int r = f.get();
+            std::cout << "result: " << r << std::endl;
+        }
+        catch(const std::exception& e)
+        {
+            std::cout << e.what() << std::endl;
+        }
+    }
 
     std::cout << "Main thread ends..." << std::endl;
 }

@@ -128,8 +128,47 @@ void using_packaged_task()
     thd1.join();
 }
 
+class SquareCalculator
+{
+    std::promise<int> promise_;
+public:
+    std::future<int> get_future()
+    {
+        return promise_.get_future();
+    }
+
+    void calculate(int x)
+    {
+        try
+        {
+            int result = calculate_square(x);
+            promise_.set_value(result);
+        }
+        catch (...)
+        {
+            promise_.set_exception(std::current_exception());
+        }
+    }
+};
+
+void using_promise()
+{
+    SquareCalculator calc;
+
+    auto fresult = calc.get_future();
+
+    std::thread thd{[f = std::move(fresult)]() mutable {
+        std::cout << "From thread#" << std::this_thread::get_id() << " - " << f.get() << std::endl;
+    }};
+
+    std::this_thread::sleep_for(3s);
+    calc.calculate(13);
+
+    thd.join();
+}
+
 int main()
 {
-    no_wait_in_desctructor();
+    using_promise();
 }
 
