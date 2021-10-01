@@ -34,7 +34,7 @@ void save_to_file(const std::string& filename)
     std::cout << "File saved: " << filename << std::endl;
 }
 
-int main()
+void using_async()
 {
     std::future<int> r1 = std::async(std::launch::async, &calculate_square, 11);
     std::future<int> r2 = std::async(std::launch::async, [] { return calculate_square(13); });
@@ -60,3 +60,76 @@ int main()
         std::cout << e.what() << std::endl;
     }
 }
+
+int bug_fixed()
+{
+    auto f1 = std::async(std::launch::async, &save_to_file, "data1.txt");
+    auto f2 = std::async(std::launch::async, &save_to_file, "data2.txt");
+    auto f3 = std::async(std::launch::async, &save_to_file, "data3.txt");
+    auto f4 = std::async(std::launch::async, &save_to_file, "data4.txt");
+}
+
+void consume(std::shared_future<int> value)
+{
+    std::cout << "Thread#" << std::this_thread::get_id() << " - " << value.get() << std::endl;
+}
+
+void produce_consume()
+{
+    std::future<int> fcalc = std::async(std::launch::async, &calculate_square, 14);
+
+    std::shared_future<int> sf1 = fcalc.share();
+
+    std::thread thd1{ [sf1] { consume(sf1); }};
+    std::thread thd2{ [sf1] { consume(sf1); }};
+
+    thd1.join();
+    thd2.join();
+}
+
+
+template <typename Callable>
+auto launch_async(Callable&& callable)
+{
+    using ResultT = decltype(callable());
+
+    std::packaged_task<ResultT()> pt(std::forward<Callable>(callable));
+    std::future<ResultT> f = pt.get_future();
+
+    std::thread thd{std::move(pt)};
+    thd.detach();
+
+    return f;
+}
+
+void no_wait_in_desctructor()
+{
+    auto f = launch_async([]{ save_to_file("data1");});
+    launch_async([]{ save_to_file("data2");});
+    launch_async([]{ save_to_file("data3");});
+
+    f.wait();
+}
+
+void using_packaged_task()
+{
+    std::packaged_task<int()> pt1([] { return calculate_square(13); });
+    std::packaged_task<int(int)> pt2(&calculate_square);
+
+    std::future<int> f1 = pt1.get_future();
+    std::future<int> f2 = pt2.get_future();
+
+    std::thread thd1{std::move(pt1)};
+    pt2(23);
+
+    std::cout << "f1: " << f1.get() << std::endl;
+    std::cout << "f2: " << f2.get() << std::endl;
+
+    thd1.join();
+}
+
+int main()
+{
+    no_wait_in_desctructor();
+}
+
