@@ -117,7 +117,7 @@ void calc_hits_by_ref_intensive_incr_with_atomic(counter_t n, atomic<counter_t>&
         double y = rnd();
         if (x * x + y * y < 1)
         {
-            ++hits;
+            hits.fetch_add(1, std::memory_order_relaxed);
         }
     }
 }
