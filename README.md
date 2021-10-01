@@ -1,5 +1,9 @@
 # Szkolenie - Programowanie wielowątkowe w C++ #
 
+## Ankieta
+
+* https://forms.gle/Sm9Y8iPprQtCS4Mv7
+
 ## Biblioteki
 
 * https://abseil.io/ - biblioteka Google

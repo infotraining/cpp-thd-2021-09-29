@@ -12,7 +12,6 @@
 #include <numeric>
 #include <random>
 #include <thread>
-#include <execution>
 #include <new>
 
 using namespace std;
@@ -253,6 +252,23 @@ double calc_pi_multithread_local_counter(counter_t throws)
     return (accumulate(hits.begin(), hits.end(), 0.0) / throws) * 4;
 }
 
+double calc_pi_async_with_futures(counter_t throws)
+{
+    auto hardware_threads_count = max(thread::hardware_concurrency(), 1u);
+    auto no_of_throws = throws / hardware_threads_count;
+
+    std::vector<std::future<counter_t>> hits;
+
+    for(size_t i = 0; i < hardware_threads_count; ++i)
+        hits.push_back(std::async(std::launch::async, &calc_hits, no_of_throws));
+
+    counter_t total_hits{};
+    for(auto& h : hits)
+        total_hits += h.get();
+
+    return total_hits / throws * 4;
+}
+
 constexpr int N = 1'000'000;
 
 TEST_CASE("Monte Carlo Pi")
@@ -279,5 +295,9 @@ TEST_CASE("Monte Carlo Pi")
 
     BENCHMARK("padding") {
         return calc_pi_multithread_with_padding(N);
+    };
+
+    BENCHMARK("futures") {
+        return calc_pi_async_with_futures(N);
     };
 }
